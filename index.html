@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Cooch Behar WebGIS</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<style>
+body{margin:0;font-family:Arial}
+#map{height:100vh}
+.panel{position:absolute;top:10px;left:10px;z-index:1000;background:white;padding:10px;border-radius:6px;max-width:280px}
+input{width:100%;padding:6px}
+.stat{font-size:13px;margin:4px 0}
+</style>
+</head>
+<body>
+<div class="panel">
+<h3>Cooch Behar WebGIS</h3>
+<div id="stats"></div>
+<input id="search" placeholder="Search village/mouza">
+</div>
+<div id="map"></div>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+const map=L.map('map').setView([26.32,89.45],9);
+
+const osm=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'OSM'}).addTo(map);
+const sat=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}');
+
+Promise.all([fetch('blocks.geojson').then(r=>r.json()),fetch('villages.geojson').then(r=>r.json())])
+.then(([blocks,villages])=>{
+document.getElementById('stats').innerHTML=
+'<div class="stat">Blocks: '+blocks.features.length+'</div>'+
+'<div class="stat">Villages/Mouzas: '+villages.features.length+'</div>';
+
+const blockLayer=L.geoJSON(blocks,{
+style:{color:'#d00',weight:2,fill:false},
+onEachFeature:(f,l)=>l.bindPopup('Block: '+f.properties.BLOCK_NAME)
+}).addTo(map);
+
+const villageLayer=L.geoJSON(villages,{
+style:{color:'#3388ff',weight:1},
+onEachFeature:(f,l)=>l.bindPopup(
+'<b>Village:</b> '+f.properties.MOUZA_NAME+'<br><b>GP:</b> '+f.properties.GP_NAME+'<br><b>Block:</b> '+f.properties.BLOCK_NAME)
+}).addTo(map);
+
+map.fitBounds(villageLayer.getBounds());
+
+L.control.layers({"OpenStreetMap":osm,"Satellite":sat},{"Blocks":blockLayer,"Villages":villageLayer}).addTo(map);
+
+document.getElementById('search').addEventListener('keyup',function(){
+let q=this.value.toLowerCase();
+villageLayer.eachLayer(function(l){
+let n=(l.feature.properties.MOUZA_NAME||'').toLowerCase();
+if(q && n.includes(q)){ map.fitBounds(l.getBounds()); l.openPopup(); }
+});
+});
+});
+</script>
+</body>
+</html>
